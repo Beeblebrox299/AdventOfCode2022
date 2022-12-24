@@ -1,4 +1,5 @@
-from ast import literal_eval
+import operator
+from tqdm import tqdm
 monkey_file = "data/21_monkeys.txt"
 
 def build_monkey_dict(filename: str) -> dict:
@@ -14,32 +15,68 @@ def build_monkey_dict(filename: str) -> dict:
     return monkeys
 
 
-def find_root_value(filename: str, monkey_dict: dict = None):
+def find_monkey_value(filename: str, my_monkey: str, monkey_dict: dict = None):
     if not monkey_dict:
         monkey_dict = build_monkey_dict(filename)
-    while type(monkey_dict["root"]) == list:
+    while type(monkey_dict[my_monkey]) == list:
         for monkey in monkey_dict:
             if type(monkey_dict[monkey]) == list:
                 operation = monkey_dict[monkey]
                 if (type(monkey_dict[operation[0]]) == int) & (type(monkey_dict[operation[2]]) == int):
                     monkey_dict[monkey] = int(eval("monkey_dict['" + operation[0] + "'] " + operation[1] +
                                                    " monkey_dict['" + operation[2] + "']"))
-    return monkey_dict["root"]
+    return monkey_dict[my_monkey]
+
+
+def perform_operation(monkey_dict: dict, monkey: str, first_monkey: str, second_monkey: str) -> None:
+    operator_dict = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.floordiv}
+    if (type(monkey_dict[first_monkey]) == int) & (type(monkey_dict[second_monkey]) == int):
+        monkey_dict[monkey] = operator_dict[monkey_dict[monkey][1]](monkey_dict[first_monkey],
+                                                                    monkey_dict[second_monkey])
+
+
+def equation_step(monkey_dict: dict, monkey: str):
+    if type(monkey_dict[monkey]) == list:
+        first_monkey = monkey_dict[monkey][0]
+        second_monkey = monkey_dict[monkey][2]
+        if (type(monkey_dict[first_monkey]) == int) & (type(monkey_dict[second_monkey]) == int):
+            perform_operation(monkey_dict, monkey, first_monkey, second_monkey)
+        else:
+            if type(first_monkey) == str:
+                equation_step(monkey_dict, first_monkey)
+                monkey_dict[monkey][0] = monkey_dict[first_monkey]
+            if type(second_monkey) == str:
+                equation_step(monkey_dict, second_monkey)
+                monkey_dict[monkey][2] = monkey_dict[second_monkey]
+            perform_operation(monkey_dict, monkey, first_monkey, second_monkey)
+    return monkey_dict
+
+
+def solve_equation(equation: list, i: int) -> int:
+    operator_dict = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.floordiv}
+    equation_copy = [x for x in equation]
+    for j in [0, 2]:
+        if type(equation_copy[j]) == list:
+            equation_copy[j] = solve_equation(equation_copy[j], i)
+        elif equation_copy[j] is None:
+            equation_copy[j] = i
+    solution = operator_dict[equation_copy[1]](equation_copy[0], equation_copy[2])
+    return solution
 
 
 def get_humn_number(filename: str) -> int:
-    # This brute force approach works for the example input. On the real input, I let i go up to ~27k before stopping.
-    # So it either doesn't work or the solution is higher than 27k.
-    # It already took several minutes to get to 27k, so I should find a better approach.
+    # I just don't care about a good, arithmetical solution at this point
     monkey_dict = build_monkey_dict(filename)
-    monkey_dict["root"][1] = '=='
-    i = 0
-    monkey_dict["humn"] = i
-    monkeys = monkey_dict.copy()
-    while not find_root_value("", monkeys):
+    monkey_dict["humn"] = None
+    monkey_dict["root"][1] = "=="
+    equation_step(monkey_dict, "root")
+    my_equation = monkey_dict["root"][0]
+    solution = -1
+    i = 3378273070690
+    while solution != monkey_dict["root"][2]:
         i += 1
-        monkeys = monkey_dict.copy()
-        monkeys["humn"] = i
+        solution = solve_equation(my_equation, i)
+        print(i, solution, monkey_dict["root"][2])
     return i
 
 
